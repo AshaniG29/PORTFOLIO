@@ -1,0 +1,561 @@
+---
+title: "Projet économétrie"
+author: "Sarah Boukhari, Saadia Djambae, Ashani Gobalasamy, Daria Klimova, Sonia Ruzand"
+date: "2025-02-17"
+output: html_document
+---
+
+```{r,  include=FALSE}
+library("lubridate")
+library("magrittr")
+library("ggplot2")
+library("ggpubr")
+library("rticles")
+library("hrbrthemes")
+library("forcats")
+library("ggridges")
+library("cowplot")
+library("ggthemes")
+library("fmsb")
+library("wesanderson")
+library("knitr", "rmarkdown", "markdown")
+library("tidyverse")
+library("tidyr")
+library("dplyr")
+library("plotly")
+library("paletteer")
+library("extrafont")
+library("kableExtra")
+library('data.table')
+library("readxl")
+library("jtools")
+library("ggrepel")
+library("fastDummies")
+library("xtable")
+library("sjPlot")
+library("sjmisc")
+library("sjlabelled")
+library("lmtest")
+library("modelsummary")
+library("kableExtra")
+library("gt")
+library("estimatr")
+library(readr)
+library(sandwich)
+library(car)
+```
+
+## Importation de la base de donnée
+
+```{r include=FALSE}
+provence_alpes_cote_d_azur <- read_delim('data/BNVD/BNVD_TRACABILITE_20231023_ACHAT_CP_SUBSTANCE_PROVENCE ALPES COTE D AZUR_2022.csv', 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+#View(provence_alpes_cote_d_azur)
+```
+
+```{r include=FALSE}
+pays_de_la_loire <- read_delim("data/BNVD/BNVD_TRACABILITE_20231023_ACHAT_CP_SUBSTANCE_PAYS DE LA LOIRE_2022.csv", 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+#View(pays_de_la_loire)
+```
+
+```{r include=FALSE}
+occitanie <- read_delim('data/BNVD/BNVD_TRACABILITE_20231023_ACHAT_CP_SUBSTANCE_OCCITANIE_2022.csv', 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+#View(occitanie)
+```
+
+```{r include=FALSE}
+nouvelle_aquitaine <- read_delim("data/BNVD/BNVD_TRACABILITE_20231023_ACHAT_CP_SUBSTANCE_NOUVELLE AQUITAINE_2022.csv", 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+#View(nouvelle_aquitaine)
+```
+
+```{r include=FALSE}
+normandie <- read_delim("data/BNVD/BNVD_TRACABILITE_20231023_ACHAT_CP_SUBSTANCE_NORMANDIE_2022.csv", 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+#View(normandie)
+```
+
+```{r include=FALSE}
+ile_de_france <- read_delim("data/BNVD/BNVD_TRACABILITE_20231023_ACHAT_CP_SUBSTANCE_ILE DE FRANCE_2022.csv", 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+#View(ile_de_france)
+```
+
+```{r include=FALSE}
+haut_de_france <- read_delim('data/BNVD/BNVD_TRACABILITE_20231023_ACHAT_CP_SUBSTANCE_HAUTS DE FRANCE_2022.csv',
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+#View(haut_de_france)
+```
+
+```{r include=FALSE}
+grand_est <- read_delim('data/BNVD/BNVD_TRACABILITE_20231023_ACHAT_CP_SUBSTANCE_GRAND EST_2022.csv', 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+#View(grand_est)
+```
+
+```{r include=FALSE}
+library(readr)
+centre_val_de_loire <- read_delim('data/BNVD/BNVD_TRACABILITE_20231023_ACHAT_CP_SUBSTANCE_CENTRE VAL DE LOIRE_2022.csv', 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+#View(centre_val_de_loire)
+```
+
+```{r include=FALSE}
+bretagne <- read_delim('data/BNVD/BNVD_TRACABILITE_20231023_ACHAT_CP_SUBSTANCE_BRETAGNE_2022.csv', 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+#View(bretagne)
+```
+
+```{r include=FALSE}
+bourgogne <- read_delim('data/BNVD/BNVD_TRACABILITE_20231023_ACHAT_CP_SUBSTANCE_BOURGOGNE FRANCHE COMTE_2022.csv', 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+#View(bourgogne)
+```
+
+```{r include=FALSE}
+auvergne_rhone_alpes <- read_delim('data/BNVD/BNVD_TRACABILITE_20231023_ACHAT_CP_SUBSTANCE_AUVERGNE RHONE ALPES_2022.csv', 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+#View(auvergne_rhone_alpes)
+```
+
+## Construction de la base de données
+
+```{r include=FALSE}
+merged_data <- rbind(auvergne_rhone_alpes, bourgogne, bretagne, centre_val_de_loire,grand_est, haut_de_france, ile_de_france, normandie, nouvelle_aquitaine, occitanie, pays_de_la_loire, provence_alpes_cote_d_azur)
+
+#Calcule la somme des quantités de substances pour chaque code_postal_acheteur
+merged_data$quantite_substance[merged_data$quantite_substance=="nc"]<-0
+merged_data$quantite_substance<-as.numeric(merged_data$quantite_substance)
+merged_data_AF<- merged_data %>% 
+  group_by(code_postal_acheteur) %>%
+  dplyr::mutate(somme_quantite=sum(quantite_substance,na.rm=TRUE))
+
+merged_data_AF <-merged_data_AF %>%
+  select(code_postal_acheteur,somme_quantite)%>% distinct()
+```
+
+```{r include=FALSE}
+#importation bdd des SAU
+agri <- read_excel("data/agri.xlsx")
+#View(agri)
+```
+
+```{r include=FALSE}
+#importation de la table "liante" et séléction des variables utiles 
+code_commune <- read_delim("data/019HexaSmal.csv", 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+
+code_commune <-code_commune %>%
+  select(Code_commune_INSEE,Code_postal)%>% distinct()
+```
+
+```{r include=FALSE}
+#mettre les variables commme "caratère"
+merged_data$code_postal_acheteur <- as.character(merged_data$code_postal_acheteur)
+code_commune$Code_postal <- as.character(code_commune$Code_postal)
+```
+
+```{r include=FALSE}
+#ajouter les 0 au début aux codes communes et postaux où il en manquent
+code_commune <- code_commune %>% distinct(Code_postal, Code_commune_INSEE)
+code_commune <- code_commune %>%
+  mutate(Code_postal = ifelse(nchar(Code_postal) == 4, str_pad(Code_postal, width = 5, side = "left", pad = "0"), Code_postal),
+         Code_commune_INSEE = ifelse(nchar(Code_commune_INSEE) == 4, str_pad(Code_commune_INSEE, width = 5, side = "left", pad = "0"), Code_commune_INSEE))
+#View(code_commune)
+```
+
+```{r include=FALSE}
+agri <- agri %>%
+  inner_join(code_commune, by = c("codgeo" = "Code_commune_INSEE"))
+#View(agri)
+#View(merged_data)
+```
+
+```{r include=FALSE}
+#somme des surfaces agricoles en fonctions du CP
+SAU_groupped <- agri %>% 
+  group_by(Code_postal) %>%
+  summarise(somme_surface = sum(sau2020, na.rm = TRUE)) %>%
+  ungroup()
+
+#View(SAU_groupped)
+```
+
+```{r include=FALSE}
+#ajout somme des surface agricoles et des quantités de substances utilisées dans la table merged
+merged <- left_join(merged_data_AF, SAU_groupped, by = c("code_postal_acheteur"="Code_postal"))
+#View(merged)
+```
+
+```{r include=FALSE}
+code_commune_freq <- code_commune %>%
+  group_by(Code_postal) %>%
+  filter(row_number() == 1) %>%
+  ungroup()
+
+merged_data <- merged_data %>%
+  inner_join(code_commune_freq, by = c("code_postal_acheteur" = "Code_postal")) %>%
+  inner_join(agri, by = c("Code_commune_INSEE" = "codgeo"))
+
+```
+
+```{r include=FALSE}
+#ajout de trois variables en fonction de la classification de la substance 
+merged_data <- merged_data %>%
+  mutate(
+    taxe_classification = case_when(
+      classification == "CMR" ~ 9,
+      classification == "Santé A" ~ 5.1,
+      classification == "Env A" ~ 3,
+      classification == "Env B" ~ 0.9,
+      classification == "Autre" ~ 0,
+      TRUE ~ NA_real_  # Valeur manquante si classification inconnue
+    ),
+    taxe_classification_mention = case_when(
+      classification_mention == "Exclusion" ~ 5,
+      classification_mention == "Substitution" ~ 2.5,
+      TRUE ~ 0  # Pas de taxe supplémentaire si autre mention
+    ),
+    impact_sante = case_when(
+      classification %in% c("CMR", "Santé A") ~ 1,
+      classification %in% c("Env A", "Env B") ~ 0,
+      classification == "Autre" ~ NA_real_  # NA pour les autres cas
+    )
+  )
+
+#View(merged_data)
+```
+
+```{r include=FALSE}
+# Calcul de la moyenne des trois variables par code_postal_acheteur
+moyennes_taxes <- merged_data %>%
+  group_by(code_postal_acheteur) %>%
+  summarise(
+    moyenne_taxe_classification = mean(taxe_classification, na.rm = TRUE),
+    moyenne_taxe_classification_mention = mean(taxe_classification_mention, na.rm = TRUE),
+    moyenne_impact_sante = mean(impact_sante, na.rm = TRUE)
+  )
+
+# Ajout des moyennes à merged
+merged <- merged %>%
+  left_join(moyennes_taxes, by = "code_postal_acheteur")
+#View(merged)
+```
+
+```{r include=FALSE}
+# Renommer la base de données
+bdd_clean <- merged %>%
+  rename(
+    quantite_substance = somme_quantite,
+    SAU = somme_surface,
+    taxe = moyenne_taxe_classification,
+    taxe_supp = moyenne_taxe_classification_mention,
+    impact_sante = moyenne_impact_sante
+  )
+bdd_clean$quantite_substance <- bdd_clean$quantite_substance / 1000 #division par 1000 pour obtenir la quantité en tonnées
+bdd_clean$log_quantite_substance <- log(bdd_clean$quantite_substance)
+View(bdd_clean)
+```
+
+## Introduction
+
+L'achat de substances phytopharmaceutiques par les communes françaises en 2022 est-il influencé par des facteurs externes tel que la superficie agricole, les taxes ou encore leur impact potentiel sur la santé et l'environnement ?
+
+## Description de la base de données
+
+```{r echo=FALSE}
+data <- data.frame(
+  Nom = c("code_postal_acheteur", "quantite_substance", "SAU", "taxe", "taxe_supp", "impact_sante"),
+  Nature = c("Qualitative nominale", "Quantitative continue", "Quantitative continue", 
+             "Quantitative continue", "Quantitative continue", "Quantitative continue"),
+  Dictionnaire = c(
+    "Code postal des acheteurs de substances phytopharmaceutiques en France (hors Corse et Outre-mer).",
+    "Quantité totale de substances phytopharmaceutiques utilisée dans chaque commune française en 2022 (en kg).",
+    "Superficie agricole utilisée (SAU) en hectares dans chaque commune française en 2020 (les données de 2022 ne sont pas disponibles).",
+    "Moyenne du taux de redevance (€ / kg de substance active), fixé en fonction de la classification de la substance et de sa toxicité. Plus une substance est dangereuse pour la santé ou l’environnement, plus la redevance est élevée. Calculé par code postal.",
+    "Moyenne du taux de redevance supplémentaire (€ / kg de substance active) en fonction des mentions des classifications des substances. Calculé par commune en France.",
+    "Moyenne de l'impact des substances phytopharmaceutiques sur la santé. Plus la valeur est proche de 1, plus l'impact est élevé sur la santé humaine. Plus elle est proche de 0, plus l'impact est environnemental."
+  )
+)
+
+kable(data, format = "html", escape = FALSE) %>%
+  kable_styling("striped", full_width = FALSE, bootstrap_options = c("hover", "condensed"))
+```
+
+Nombres d'observations : 5804 (représentant les commmunes françaises)   
+Base de donnée : coupe transversalle
+
+## Statistiques descriptives et representations graphiques
+
+```{r echo=FALSE}
+#Statistiques descriptives 
+summary(bdd_clean)
+
+#graphique 1
+ggplot(bdd_clean) +
+  aes(x = SAU, y = log_quantite_substance) +
+  geom_point(
+    size = 0.5,
+    shape = "circle small",
+    colour = "#B13272"
+  ) +
+  labs(
+    title = "Graphique 1 : Quantité de substance utilisée (en France,
+    en 2022 en log) en fonction de la surface 
+    agricole communale"
+  ) +
+  ggthemes::theme_economist_white()
+
+#Graphique 2: 
+ggplot(moyennes_taxes) +
+  aes(x = moyenne_taxe_classification) +
+  geom_histogram(bins = 30L, fill = "#890848") +
+  labs(
+    title = "Graphique 2 : Moyennes des taxes sur les substances
+    en France en 2022"
+  ) +
+  ggthemes::theme_economist_white()
+
+#Graphique 3: 
+ggplot(bdd_clean) +
+  aes(x = impact_sante) +
+  geom_histogram(bins = 30L, fill = "#112446") +
+  labs(
+    title = "Graphique 3 : Mesure de l'impact moyen des pesticides
+    sur la santé ou l'environnement"
+  ) +
+  ggthemes::theme_economist_white()
+
+```
+
+#### Interprétation Graphe 1 :  
+-   SAU faible (0 à 10 000 ha) : La plupart des communes utilisent peu de substances, mais certaines en utilisent beaucoup plus que les autres.\
+-   SAU moyenne (10 000 à 30 000 ha) : On observe encore beaucoup de différences entre les communes, avec une légère tendance à utiliser plus de substances quand la SAU augmente.\
+-   SAU élevée (30 000 à 50 000 ha) : Il y a peu de communes dans cette catégorie, mais elles montrent aussi des niveaux très différents d’utilisation de substances.
+
+#### Interpretation Graphe 2 :  
+On voit que parmis les substances les plus achetées en 2022 se classe dans la catégorie "Env A" (toxicité aiguë pour le milieu aquatique de catégorie 1 ou toxicité chronique pour le milieu aquatique de catégorie 1 ou 2) avec la part la plus importante de subsatance dont on envisage la substitution. Suivi de peu par la catégorie "autre" regroupant d'autre substances.
+
+#### Interpretation Graphe 3 :  
+En 2022, la plupart des communes ont une taxe moyenne comprise entre 3,5 et 4 € par kg de substance active.
+
+## Modèle économique et économétrique :
+
+L'équation à estimer :\
+$quantite\_ substance_i = \beta_0 + \beta_1 \cdot SAU_i + \beta_2 \cdot taxe_i + \beta_3 \cdot taxe\_ supp_i + \beta_4 \cdot impact\_ sante_i  + u_i$
+
+Intuition et interprétation économique des paramètres :\
+- $\beta_0$ : positif. Représente la quantité de substance achetée lorsque toutes les variables explicatives sont égales à zéro.\
+- $\beta_1$ :de signe positif. Une augmentation de la surface argicole de 1ha devrait augmenter la quantité de substance achetée de $\beta_1$ tonnes\
+- $\beta_2$ : de signe négatif. Une augmentation de la taxe liée à la classification des substances (toxiques ou polluantes) devrait réduire de $\beta_2$ tonnes la quantité achetée, car un coût plus élevé incite à substituer ou limiter l’usage des substances les plus taxées.\
+- $\beta_3$ : de signe négatif. Une taxe supplémentaire sur certaines substances (mention "Exclusion" ou "Substitution") devrait réduire encore davantage (de $\beta_3$ tonnes) les achats.\
+- $\beta_4$ : de signe incertain, cela dépend si les acheteurs sont plus sensibles aux impacts sur leur santé ou sur l'environnement.
+
+Le modèle économétrique et les MCO :
+
+```{r echo=FALSE}
+mco_1 <- lm(quantite_substance ~ SAU + taxe + taxe_supp + impact_sante, data = bdd_clean)
+modelsummary(mco_1)
+summary(mco_1)
+```
+
+On a 26.1% (part de la variance) qui est expliqué par le modèle. De plus, le modèle est globalement significatif : les quatres variables explicatives, prises ensembles, ont un effet non nul sur la quantité achetée.
+
+Interpretation :\
+- $\beta_0$ : Lorsque la surface agricole de la commune est nulle, la taxe sur la classification et la taxe supplémentaire due aux mentions sont égales 0, et que la substance a un impact uniquement sur l’environnement (impact_sante = 0), alors la quantité achetée estimée est –7,651 tonnes.\
+- $\beta_1$ : Chaque hectare supplémentaire de SAU (surface agricole utile) est associé à une augmentation moyenne de  1,831 tonnes de substance active achetée\
+- $\beta_2$ : Quand la taxe  augmente d'un euro, la quantité de substance achetée diminue en moyenne de 1,162 tonnes\
+- $\beta_3$ : Quand la taxe supplémentaire augmente d'un euro, la quantité de substance augmente en moyenne de 4,124 tonnes. (c'est contre intuitif ou cela peu être éxpliqué par le fait que la taxe supplémentaire n’a peut-être pas d’effet dissuasif car la substance reste indispensable pour les agriculteurs, qui continuent de l’utiliser malgré son coût ou son impact.)\
+- $\beta_4$ : Quand l’impact sur la santé augmente de 1 point, la quantité de substance augmente de 46,320 tonnes en moyenne.  
+
+
+## Tests sur le premier modèle 
+
+#### Significativité (test de Student et Fisher)  
+Hypothèse testée au seuil de 5%:$H_0 : \beta_0 = 0 \quad \text{vs} \quad H_1 : \beta_0 \neq 0$  
+
+Règle de décision  
+Si $|t_{\beta_0}| > t_{1-\alpha/2}(n - (k + 1))$, on rejette $H_0$  
+
+Application  
+$t_{1-\alpha/2}(n - (k + 1)) = 1.96 $
+
+-$|t_{\beta_0}| > t_{1-\alpha/2}(n - (k + 1))$,**on rejette** $H_0$: $\beta_0$ est significativement différent de 0  
+
+-$|t_{\beta_1}| > t_{1-\alpha/2}(n - (k + 1))$,**on rejette** $H_0$: $\beta_1$ est significativement différent de 0  
+
+-$|t_{\beta_2}| > t_{1-\alpha/2}(n - (k + 1))$, **on ne rejette pas** $H_0$: $\beta_2$ n'est pas significativement différent de 0
+
+-$|t_{\beta_3}| > t_{1-\alpha/2}(n - (k + 1))$,**on ne rejette pas ** $H_0$: $\beta_3$ n'est pas significativement différent de 0  
+
+-$|t_{\beta_4}| > t_{1-\alpha/2}(n - (k + 1))$, **on rejette** $H_0$: $\beta_4$ est significativement différent de 0
+
+Significativité globale du modèle (test de Fisher) :
+Hypothèse testée au seuil de 5%: $H_0 : \beta_i = 0 \quad \text{vs} \quad H_1 : \beta_i \neq 0$ avec i = 1…,k
+
+Règle de décision : Si $F > Fv1,v2$, on rejette $H_0$  
+
+Application :
+$F = 488.8$      $F v1,v2 = 2.37$, **on rejette** $H_0$: le modèle est globalement significatif.
+
+#### Tests d'hétérocedasticité (BP et White)   
+La base de données utilisée étant une coupe transversale, il est possible que l’hypothèse H2 ne soit pas vérifiée. Cette hétéroscédasticité remet en question l’hypothèse de variance constante des résidus, ce qui peut affecter l’efficacité des estimateurs des moindres carrés ordinaires  et biaiser les inférences statistiques. 
+Afin de vérifier cette hypothèse, nous aurons recours aux tests de Breusch-Pagan et de White.  
+  
+###### Test de BP :  
+On test
+$H_0 : \sigma_i^2 = \sigma_u^2 \quad \text{contre} \quad H_1 : \sigma_i^2 = h(Z_i, a), \quad \text{avec} \quad i = 1, \dots, N$
+### Étapes 
+1. Estimation du modèle par les MCO (Moindres Carrés Ordinaires).
+2. Estimation des résidus : $\hat{u}_i^2$
+3. Régression auxiliaire sur les variables explicatives.
+
+$\frac{\hat{u}_i^2}{\hat{\sigma}_u^2} = a_0 + a_1 Z_{1i} + a_2 Z_{2i} + \dots + a_p Z_{pi} + \eta_i \quad \text{(équation 2)}$
+
+La statistique de test est la moiti´e de la SCE de la r´egression auxiliaire:
+$QBP = \frac{SCE}{2}$
+
+```{r echo=FALSE}
+bptest(mco_1)
+```
+
+Si $QBP > \chi^2(p)$ : Rejeter $H_0$ → perturbations hétéroscédastiques.
+
+Si $QBP < \chi^2(p)$ : Ne pas rejeter $H_0$ → perturbations homoscédastiques.
+
+Application : p-value < 2.2e-16 , on rejette $H_0$, il y a présence d'hétéroscédasticité dans le modèle.     
+  
+##### Test de White : 
+## Homoscédasticité
+
+On teste :
+
+$H_0 : \sigma_i^2 = \sigma_u^2 \quad \forall i \quad \text{vs.} \quad$
+$H_1 : \exists \ (i, j),\ i \neq j : \sigma_i^2 \neq \sigma_u^2$
+
+### Étapes :
+1. Estimation du modèle par les MCO (Moindres Carrés Ordinaires).
+2. Estimation des résidus : $\hat{u}_i^2$
+3. Régression auxiliaire sur les variables explicatives.
+
+$QW = N R^2 \approx \chi^2\left( \frac{(k+1)(k+2)}{2} - 1 \right)$
+
+Règle de décision : **on rejette** $H_0$ si  $Qw > χ²th$
+
+```{r echo=FALSE}
+library("skedastic")
+
+skedastic_package_white <- white (mainlm = mco_1,
+                                  interactions = TRUE
+                                  )
+skedastic_package_white
+```
+D'après le test de White, la p-value étant inférieure à 0,05, nous rejetons l'hypothèse d'homoscédasticité, ce qui suggère que les perturbations sont hétéroscédastiques.    
+  
+  
+#### Correction hétéroscédasticité  
+L'écart-type robuste est une correction importante lorsque l'hypothèse d'homoscédasticité n'est plus valable. Il permet d'obtenir des inférences statistiques valides même en présence d'hétéroscédasticité inconnue. La méthode la plus connue pour corriger l'estimation de la matrice de variance-covariance est la correction de White.
+
+La matrice corrigée proposée par White est donnée par :  
+
+$\widehat{V}(\beta_{\text{MCO}}) = (X^T X)^{-1} V (X^T X)^{-1}$ avec la correction $V = \sum_{i=1}^{N} \hat{u}_i^2 (X_i X_i^T)$
+
+Grâce à cette correction, les écarts-types obtenus sont dits "robustes à l'hétéroscédasticité", et permettent de réaliser des tests statistiques fiables malgré la violation de l'hypothèse d'homoscédasticité.
+
+Après la correction avec les écarts-types robustes, on obtient les résultats suivants :  
+```{r echo=FALSE}
+coeftest(mco_1, vcov = vcovHC(mco_1, type = "HC1"))
+```
+taxe_supp devient significatif à 5 % (p = 0.041), alors qu’il était à la limite (p = 0.075) sans robustesse.  
+
+taxe est encore moins significatif (p = 0.10), donc on ne peut pas conclure clairement sur son effet.  
+
+
+#### Test de la multicolinéarité :   
+On test:
+
+
+```{r echo=FALSE}
+vif(mco_1)
+```
+Il n'y a pas de multicolinéarité entre les facteurs. 
+
+
+## Changement de modèle (modèle retenu) 
+
+On passe la quantité de substance en logarithme pour une intérpréttaion en pourcentage, ce qui nous semble être un peu plus logique. Le modèle devient une semi élasticité.    
+
+```{r echo=FALSE}
+mco_2 <- lm(log(quantite_substance ) ~ SAU + taxe + taxe_supp + impact_sante, data = bdd_clean)
+modelsummary(mco_2)
+summary(mco_2)
+```
+
+Ajout d'une contrainte : termes quadratiques sur taxe et taxe_supp car elles ne sont pas linéaire dans le modèle  
+```{r echo=FALSE}
+mco_2_quad <- lm(log(quantite_substance) ~ SAU + taxe + I(taxe^2) + taxe_supp + I(taxe_supp^2) + impact_sante, data = bdd_clean)
+summary(mco_2_quad)
+```
+```{r}
+as.data.frame(round(vcovHC(mco_2_quad, type = "HC1"), 5))
+```
+
+Equation à  estimé du modèle 2 :   
+$log\_quantite\_ substance_i = \beta_0 + \beta_1 \cdot SAU_i + \beta_2 \cdot taxe_i +  \beta_3 \cdot (taxe)^2_i + \beta_4 \cdot taxe\_ supp_i + \beta_5 \cdot (taxe\_ supp)^2_i + \beta_6 \cdot impact\_ sante_i  + u_i$  
+  
+### Tests sur modèle 2
+Test sur l'impact de la taxe:
+
+L'impact de la taxe
+```{r}
+linearHypothesis(mco_2_quad, c("taxe = 0", "I(taxe^2) = 0"))
+```
+L'impact de la taxe supplementaire:
+```{r}
+linearHypothesis(mco_2_quad, c("taxe_supp = 0", "I(taxe_supp^2) = 0"))
+```
+
+
+Test de contrainte   
+```{r echo=FALSE}
+anova(mco_2, mco_2_quad) 
+```
+Les termes taxe et taxe_supp au carré améliorent significativement le modèle, l'ajout des contraintes est justifié.  
+
+Test de l'hétéroscédasticité   
+```{r echo=FALSE}
+bptest(mco_2_quad)
+```
+Il y a de l'hétéroscédasticité, on la corrige :   
+```{r echo=FALSE}
+mco_2_quadr <- coeftest(mco_2_quad, vcov = vcovHC(mco_2_quad, type = "HC1"))
+modelsummary(mco_2_quadr)
+mco_2_quadr
+```
+### Interpretation des estimations :  
+- $\beta_0$ : Lorsque la surface agricole de la commune est nulle, la taxe sur la classification et la taxe supplémentaire due aux mentions sont égales 0, et que la substance a un impact uniquement sur l’environnement (impact_sante = 0), alors la quantité achetée estimée est 0,000009537 tonnes.   
+- $\beta_1$ : Une utilisation de 1 hectare supplémentaire de la surface agricole est associée à une hausse de 0.0167 % de la quantité de substance.  
+- $\beta_2$ : Contre intuitif -> une augmentation d'un euro de la taxe est associée à une augmentation de 459.27% de la quantité de substance achetée.  
+- $\beta_3$ : Non-linéarité de l'effet de la taxe. La négativité de ce coefficient suggère qu'une augmentation supplémentaire de la taxe après un certain seuil réduira la quantité de substance.  
+- $\beta_4$ : Une augmentation d'un euro de la taxe supplémentaire conduit à une augmentation de 898.47% de la quantité de substance achetée.  
+- $\beta_5$ :  L'impact de la taxe supplémentaire sur la quantité de substance a un effet de saturation (négatif après un certain seuil), comme pour le terme quadratique de la taxe standard.  
+- $\beta_6$ : Une augmentation d'une unité de l'impact sur la santé est associée à une augmentation de 584.61% de la quantité de substance achetée.  
+
+#### Test de Student :  
+Toutes les variables dans le modèle sont hautement significatives (p-value inférieure à 0.001), chaque coefficient est significativement différent de zéro ce qui signifie que les variables ont un effet statistiquement fiable sur la quantité de substance dans ce modèle.  
+  
+  
+#### Comparaison AIC et BIC des deux modèles :   
+  
+Modèle 1 (mco_1)  
+AIC : 124111.7   
+BIC : 124151.4  
+  
+Modèle 2 (mco_2_quadr)  
+AIC : 31932.6  
+BIC : 68354.0  
+  
+Le modèle 2 est préféré car il a des valeurs d'AIC et de BIC beaucoup plus faibles que le modèle 1. **Le modèle que l'on garde est mco_2_quadr**   
+
